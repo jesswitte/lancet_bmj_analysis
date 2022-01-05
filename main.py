@@ -1,67 +1,70 @@
-from hathitrust_api import DataAPI
+import glob
+from difflib import SequenceMatcher
 import pandas as pd
-import codecs, time, os, random
+from nltk import tokenize
+import os
 
-data_api = DataAPI("546686df08", "fbda40a272c61f76a40d3c80ee2e")
-
-files = [x for x in os.listdir('hathivols') if x.endswith('.txt')]
-
-already = []
-
-for f in files:
-    f = f.replace('.txt', '').replace('+', '/').replace('=', ':')
-    already.append(f)
-
-print(already)
-print()
-
-meta = pd.read_csv('lancet_to_1910_3.csv')
-hathi_ids = meta.id
+source = ('/Users/jessicawitte/Documents/hathiscrape_lancet/hathi_vols/**/*.txt')
+files2get = glob.glob(source + '9*.txt')
+files2get.extend(glob.glob(source + '8*.txt'))
 
 
+targets = {'anxiety'}
 
-for anid in hathi_ids:
-    if anid in already:
-        continue
-    pages = []
-    finished = False
+snippets = []
+filenames = []
+indexes = []
 
-    print(anid)
-    for i in range(1, 1000):
-        try:
-            text = data_api.getpageocr(anid, i)
-            text = codecs.decode(text, 'utf-8')
-            pages.append(text)
+for filename in source:
+    with open(filename, encoding = 'utf-8') as f:
+filestring = f.read()
+wordsinfile = tokenize.word_tokenize(filestring)
 
-        except Exception as inst:
-            print(type(inst))
-            print(inst.args)
-            if inst.args[0].startswith('404'):
-                already.append(anid)
-                finished = True
-            break
-        time.sleep(1)
+for idx, w in enumerate(wordsinfile):
+    found = False
+if w in targets:
+    found = True
+w = w.lower()
+elif w.startswith('p') and len(w) > 4:
 
-    if finished:
-        print(i)
-        print()
-        cleanid = anid.replace('/', '+').replace(':', '=')
-        with open('hathivols/' + cleanid + '.txt', mode = 'w', encoding = 'utf-8') as f:
-            for i, p in enumerate(pages):
-                f.write(p)
-                f.write('\n')
-                f.write('<page ' + str(i + 1) + '>\n')
-    else:
-        time.sleep(50)
-        print('failed: ' + str(i))
-        print()
-        cleanid = anid.replace('/', '+').replace(':', '=')
-        if not os.path.isdir(cleanid):
-            os.mkdir(cleanid)
-        for i, p in enumerate(pages):
-            with open(cleanid + '/' + str(i) + '.txt', mode = 'w', encoding = 'utf-8') as f:
-                f.write(p)
-print('finished')
+for t in targets:
+    matcher = SequenceMatcher(None, w, t)
+if matcher.real_quick_ratio() > 0.5 and matcher.ratio() > 0.85:
+    found = True
+break
+
+if found:
+    snippetstart = idx - 25
+    if snippetstart < 0:
+        snippetstart = 0
+
+    snippetend = idx + 25
+    if snippetend > len(wordsinfile):
+        snippetend = len(wordsinfile)
+
+
+    snippets.append((' '.join(wordsinfile[snippetstart : snippetend])))
+    if len(snippets) % 10 == 1:
+        print(len(snippets))
+
+    indexes.append(idx)
+
+
+
+
+print (snippets)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
